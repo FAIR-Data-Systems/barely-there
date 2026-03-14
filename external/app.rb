@@ -4,10 +4,22 @@ require 'securerandom'
 require 'openssl'
 require 'fileutils'
 
-set :server, 'puma'
-set :bind, '0.0.0.0'
-set :port, ENV.fetch('PORT', 4567).to_i
-set :protection, false
+
+
+configure do
+  set :server, 'puma'
+  set :bind, '0.0.0.0'
+  set :port, ENV.fetch('PORT', 4567).to_i
+  set :host_authorization, permitted_hosts: [
+    '127.0.0.1',
+    'localhost',
+    '127.0.0.1:8282',
+    'localhost:8282',
+    'fairdata.services',          # for proxied requests
+    'fairdata.services:80',       # if port explicit
+    'fairdata.services:443'       # if HTTPS
+  ]
+end
 # set :protection, except: :host_authorization
 # OR fully disable HostAuthorization while keeping others:
 # set :protection, host_authorization: { permitted_hosts: ['fairdata.services', 'localhost'] }
