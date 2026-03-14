@@ -7,9 +7,10 @@ require 'fileutils'
 set :server, 'puma'
 set :bind, '0.0.0.0'
 set :port, ENV.fetch('PORT', 4567).to_i
+set :protection, false
 # set :protection, except: :host_authorization
 # OR fully disable HostAuthorization while keeping others:
-set :protection, host_authorization: { permitted_hosts: ['fairdata.services', 'localhost'] }
+# set :protection, host_authorization: { permitted_hosts: ['fairdata.services', 'localhost'] }
 
 
 QUEUE_DIR = ENV.fetch('QUEUE_DIR', '/data/queue')
