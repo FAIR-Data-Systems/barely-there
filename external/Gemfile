@@ -1,4 +1,7 @@
 source 'https://rubygems.org'
 
-gem 'sinatra', '~> 4.0'
-gem 'thin',    '~> 1.8'
+
+
+gem "sinatra", "~> 4.2"
+
+gem "thin", "~> 2.0"
