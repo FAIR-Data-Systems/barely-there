@@ -10,7 +10,6 @@ services:
 
   internal:
     build: ./internal
-    depends_on: [external]
     environment:
       - EXTERNAL_URL=http://external:4567
       - TRIPLESTORE_URL=http://your-triplestore:3030/sparql
