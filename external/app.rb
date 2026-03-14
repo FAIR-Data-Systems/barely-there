@@ -4,7 +4,7 @@ require 'securerandom'
 require 'openssl'
 require 'fileutils'
 
-set :server, 'thin'
+set :server, 'puma'
 set :bind, '0.0.0.0'
 set :port, ENV.fetch('PORT', 4567).to_i
 
