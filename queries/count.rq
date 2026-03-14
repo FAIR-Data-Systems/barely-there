@@ -17,5 +17,5 @@ select (COUNT(?disattribute) as ?count) where {
             sio:SIO_000229 ?disoutput .
 ?disoutput a <http://purl.obolibrary.org/obo/NCIT_C154625>; # diagnosis code
            sio:SIO_000628 ?disattribute.
-?disattribute a ?{{orphacode}} .  # attribute is a orphacode
+?disattribute a <{{orphacode}}> .  # attribute is a orphacode
 }
