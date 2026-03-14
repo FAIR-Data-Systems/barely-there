@@ -1,0 +1,9 @@
+version: '3.9'
+services:
+  external:
+    build: ./external
+    ports: ["4567:4567"]
+    volumes: ["./data:/data"]
+    environment:
+      - ENCRYPTION_KEY_HEX=...
+      - RESULT_FORMAT=json
