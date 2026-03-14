@@ -39,18 +39,18 @@ def decrypt(encrypted)
 end
 
 # ============== Token stub (uncomment to enforce) ==============
-# before do
-#   if ENV['AUTH_TOKEN']
-#     halt 401 unless request.env['HTTP_AUTHORIZATION'] == "Bearer #{ENV['AUTH_TOKEN']}"
-#   end
-# end
+before do
+  if ENV['AUTH_TOKEN']
+    halt 401 unless request.env['HTTP_AUTHORIZATION'] == "Bearer #{ENV['AUTH_TOKEN']}"
+  end
+end
 
 # ============== Submit (POST or GET) ==============
-post '/queries' do
+post '/bthere/queries' do
   submit_job
 end
 
-get '/queries' do
+get '/bthere/queries' do
   submit_job
 end
 
@@ -72,7 +72,7 @@ def submit_job
 end
 
 # ============== Polling from gateway Hub ==============
-get '/jobs/:uuid' do |uuid|
+get '/bthere/jobs/:uuid' do |uuid|
   pending = "#{QUEUE_DIR}/#{uuid}.pending.json"
   processing = "#{QUEUE_DIR}/#{uuid}.processing.json"
   result_file = "#{RESULTS_DIR}/#{uuid}.enc"
@@ -95,7 +95,7 @@ get '/jobs/:uuid' do |uuid|
 end
 
 # ============== Internal results push ==============
-post '/jobs/:uuid/result' do |uuid|
+post '/bthere/jobs/:uuid/result' do |uuid|
   body = request.body.read
   result_file = "#{RESULTS_DIR}/#{uuid}.enc"
   processing = "#{QUEUE_DIR}/#{uuid}.processing.json"
@@ -108,7 +108,7 @@ post '/jobs/:uuid/result' do |uuid|
 end
 
 # ============== Called from Internal poll (one job at a time) ==============
-get '/queue/pull' do
+get '/bthere/queue/pull' do
   pending_files = Dir["#{QUEUE_DIR}/*.pending.json"].sort
   if pending_files.empty?
     status 204
