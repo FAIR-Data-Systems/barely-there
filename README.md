@@ -1,6 +1,6 @@
 <img src="./docs/SeverenceSM.png"/>
 
-# Severence: Secure SPARQL Service
+# Severance: Secure SPARQL Service
 
 A highly secure, very lightweight, query system
 
