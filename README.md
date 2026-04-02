@@ -4,6 +4,8 @@
 
 A highly secure, very lightweight, query system
 
+The name comes from the popular TV series [Severance](en.wikipedia.org/wiki/Severance_(TV_series)) where the characters live two separate lives, where their two "parts" cannot communicate with one another, after they exit the Elevator (the project logo)
+
 ## Severed for Security: Users are Outie, Queries stay Innie
 
 **Query Flow Diagram**
