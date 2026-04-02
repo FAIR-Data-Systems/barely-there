@@ -8,5 +8,5 @@ A highly secure, very lightweight, query system
 
 **Query Flow Diagram**
 
-<img src="Severence%20Functionality.png"/>
+<img src="./docs/Severence%20Functionality.png"/>
 
