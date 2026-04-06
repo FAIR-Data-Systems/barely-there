@@ -4,7 +4,7 @@
 
 A highly secure, very lightweight, query system
 
-The name comes from the popular TV series [Severance](en.wikipedia.org/wiki/Severance_(TV_series)) where there is no communication between someone's "public facing" self, and their "work self".  The transition happens while riding the elevator to their office (the project logo)
+The name comes from the popular TV series [Severance](en.wikipedia.org/wiki/Severance_(TV_series)) where there is no communication between someone's "public facing self", and their "work self".  The transition happens while riding the elevator to their office (the project logo). The outside world is completely excluded from the internal, very sensitive business.
 
 ## Severed for Security: Users are Outside, Queries stay Inside)
 
