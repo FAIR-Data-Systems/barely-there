@@ -1,1 +1,0 @@
-{"query_id":">\n\nSELECT ?person ?name ?age ?country\nWHERE {\n  ?person a foaf:Person ;\n          foaf:name ?_name_string ;\n          ex:age ?_age_integer ;\n          ex:country ?_country_iri","bindings":{},"submitted_at":1775135880}

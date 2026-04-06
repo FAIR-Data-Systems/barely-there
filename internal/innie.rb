@@ -1,3 +1,6 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
 require 'net/http'
 require 'json'
 require 'fileutils'
@@ -5,18 +8,37 @@ require_relative 'annotation_parser'
 
 include QueryAnnotationParser
 
+# External service URL (e.g. the UI / orchestrator service)
 EXTERNAL_URL = ENV.fetch('EXTERNAL_URL')
-TRIPLESTORE_URL = ENV.fetch('TRIPLESTORE_URL')
-QUERY_DIR      = ENV.fetch('QUERY_DIR')
-POLL_INTERVAL  = ENV.fetch('POLL_INTERVAL', 10).to_i
-RESULT_FORMAT  = ENV['RESULT_FORMAT'] == 'csv' ? 'csv' : 'json'
 
+# Triplestore SPARQL endpoint URL
+TRIPLESTORE_URL = ENV.fetch('TRIPLESTORE_URL')
+
+# Directory containing the .rq query files (usually mounted read-only)
+QUERY_DIR = ENV.fetch('QUERY_DIR')
+
+# How often to poll the external service for new jobs (in seconds)
+POLL_INTERVAL = ENV.fetch('POLL_INTERVAL', 10).to_i
+
+# Output format for SPARQL results: 'json' (default) or 'csv'
+RESULT_FORMAT = ENV['RESULT_FORMAT'] == 'csv' ? 'csv' : 'json'
+
+# Accept header sent to the triplestore
 ACCEPT_HEADER = RESULT_FORMAT == 'csv' ? 'text/csv' : 'application/sparql-results+json'
 
 # ------------------------------------------------------------------
 # Helper: Escape value for safe insertion into SPARQL
 # ------------------------------------------------------------------
-# Replace grlc-style parameters with proper SPARQL escaping + IRI wrapping
+
+# Replaces grlc-style parameters (`?_name_type` or `?__name_type`) in a SPARQL query
+# with properly escaped and typed values from the provided bindings.
+#
+# @param query [String] The original SPARQL query text
+# @param bindings [Hash] Parameter values (key => value)
+# @param variable_types [Hash] Optional type information from the annotation parser
+#                              (used to decide whether to treat a value as IRI)
+#
+# @return [String] The query with all parameters substituted
 def substitute_grlc_bindings(query, bindings, variable_types = {})
   return query if bindings.nil? || bindings.empty?
 
@@ -25,7 +47,6 @@ def substitute_grlc_bindings(query, bindings, variable_types = {})
 
     # Determine if this variable is declared as iri
     is_iri = variable_types[k.to_s]&.downcase == 'iri'
-
     escaped_value = if is_iri
                       # Auto-wrap IRIs in < >
                       if v.to_s.strip.start_with?('<') && v.to_s.strip.end_with?('>')
@@ -39,21 +60,23 @@ def substitute_grlc_bindings(query, bindings, variable_types = {})
 
     # Match both ?_key_type and ?__key_type
     pattern = /(?:\?__|\?_)#{Regexp.escape(k.to_s)}_[\w:]+/i
-
     query.gsub!(pattern) do |_match|
       escaped_value
     end
 
-    warn "→ Substituted ?_#{k}_*  →  #{escaped_value}"
+    warn "→ Substituted ?_#{k}_* → #{escaped_value}"
   end
-
   query
 end
 
+# Escapes a Ruby value for safe use inside a SPARQL query string.
+#
+# @param value [Object] The value to escape (String, Numeric, Boolean, etc.)
+# @return [String] A properly quoted and escaped SPARQL literal
 def escape_for_sparql(value)
   case value
   when TrueClass, FalseClass then value.to_s
-  when Numeric               then value.to_s
+  when Numeric then value.to_s
   when String
     escaped = value.gsub('\\', '\\\\').gsub('"', '\\"')
     "\"#{escaped}\""
@@ -62,35 +85,29 @@ def escape_for_sparql(value)
   end
 end
 
+# Placeholder for future query validation logic.
+#
+# @param _query [String] The SPARQL query to validate
+# @return [Boolean] Currently always returns true
 def validate_query(_query)
   true # ← stub – replace with real validation later
 end
 
 # ========================================================================
+# ============================ MAIN LOOP =================================
 # ========================================================================
-# ========================================================================
-# ========================       MAIN     ================================
-# ========================================================================
-# ========================================================================
-# ========================================================================
-# ========================================================================
-# On startup - push all the queries to External (with metadata) so they can be listed in the UI and pulled by ID later
-# queries = process_folder('/queries') # mounted into the container, read-only
-# ========================================================================
-# On startup: Push all query metadata to Outie
-# ========================================================================
-# ========================================================================
-# On startup: Push ALL query metadata to Outie in ONE single call
-# ========================================================================
+
+# On startup: Push all query metadata to the external service (Outie)
+# so the UI can list available queries and later request them by ID.
 begin
   queries = QueryAnnotationParser::Parser.process_folder(QUERY_DIR)
 
-  # Build the final list that Outie expects (and that the UI will read)
+  # Build the final list that Outie expects
   available_queries = queries.map do |metadata|
-    # Compute smart bindings from defaults + enumerate (what the UI probably wants)
+    # Compute smart bindings from defaults + enumerate
     bindings = metadata['defaults'].dup || {}
 
-    # If there are enumerated values, add them as arrays (so UI can offer dropdowns)
+    # If there are enumerated values, add them as arrays (for UI dropdowns)
     (metadata['enumerate'] || {}).each do |key, values|
       bindings[key] = values if values.is_a?(Array) && !values.empty?
     end
@@ -103,7 +120,7 @@ begin
       'tags' => metadata['tags'],
       'variables' => metadata['variables'],
       'variable_types' => metadata['variable_types'],
-      'bindings' => bindings, # ← now populated!
+      'bindings' => bindings,
       'pagination' => metadata['pagination'],
       'method' => metadata['method'],
       'endpoint' => metadata['endpoint'],
@@ -111,8 +128,9 @@ begin
     }.compact # remove nil keys
   end
 
-  # ONE single POST with the full list
+  # ONE single POST with the full list of available queries
   push_uri = URI("#{EXTERNAL_URL}/severance/available_queries")
+  warn "Pushing #{available_queries.size} available queries to #{push_uri.inspect}..."
   push_req = Net::HTTP::Post.new(push_uri)
   push_req['Content-Type'] = 'application/json; charset=utf-8'
   push_req.body = JSON.generate(available_queries)
@@ -124,7 +142,7 @@ begin
   if res.is_a?(Net::HTTPSuccess)
     warn "✓ Registered #{available_queries.size} queries"
     available_queries.each do |q|
-      warn "   • #{q['query_id']} (#{q['title'] || 'no title'})"
+      warn " • #{q['query_id']} (#{q['title'] || 'no title'})"
     end
   else
     warn "⚠ Failed to register queries: #{res.code} #{res.message}"
@@ -135,11 +153,15 @@ rescue StandardError => e
   warn "❌ Failed to push queries on startup: #{e.class} - #{e.message}"
 end
 
+# Main polling loop: continuously pull jobs from the external service,
+# execute them against the triplestore, and push results back.
 loop do
   poll_uri = URI("#{EXTERNAL_URL}/severance/queue/pull")
+  warn "Polling for new jobs at #{poll_uri.inspect}..."
   http = Net::HTTP.new(poll_uri.hostname, poll_uri.port)
   http.use_ssl = (poll_uri.scheme == 'https')
   response = http.request(Net::HTTP::Get.new(poll_uri))
+
   if response.code == '204'
     sleep POLL_INTERVAL
     next
@@ -153,7 +175,6 @@ loop do
   bindings = job['bindings'] || {}
 
   query_path = "#{QUERY_DIR}/#{query_id}.rq"
-
   unless File.exist?(query_path)
     warn "Query file missing: #{query_path}"
     sleep POLL_INTERVAL
@@ -166,30 +187,35 @@ loop do
   # === Bind grlc-style placeholders (?_key_type) ===
   query = substitute_grlc_bindings(query, bindings)
 
-  # Optional: you can also add the new 'id' field to metadata later if needed
-  # For now we keep the runtime job processing simple.
+  validate_query(query)
 
-  validate_query(query) # your stub
-
-  # === Execute against triplestore ===
+  # === Execute against triplestore with authentication ===
   uri = URI(TRIPLESTORE_URL)
+  warn "SPARQL endpoint: #{uri.inspect}"
+
   req = Net::HTTP::Post.new(uri)
   req['Accept'] = ACCEPT_HEADER
   req['Content-Type'] = 'application/sparql-query'
   req.body = query
 
+  # Add Basic Authentication if credentials are provided
+  if ENV['TRIPLESTORE_USER'] && ENV['TRIPLESTORE_PASS']
+    req.basic_auth(ENV['TRIPLESTORE_USER'], ENV['TRIPLESTORE_PASS'])
+    warn "Using Basic Auth for user: #{ENV['TRIPLESTORE_USER']}"
+  else
+    warn 'Warning: TRIPLESTORE_USER or TRIPLESTORE_PASS not set - running without authentication'
+  end
+
   res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == 'https') do |http|
     http.request(req)
   end
 
-  warn "HTTP result status: #{res.code}"
+  warn "SPARQL SERVER: HTTP result status: #{res.code}"
   result_body = res.body.strip
-
   # === Push result back to External ===
   push_uri = URI("#{EXTERNAL_URL}/severance/jobs/#{uuid}/result")
   http = Net::HTTP.new(push_uri.hostname, push_uri.port)
   http.use_ssl = (push_uri.scheme == 'https')
-
   push_req = Net::HTTP::Post.new(push_uri)
   push_req['Content-Type'] = 'text/plain; charset=utf-8'
   push_req.body = result_body.force_encoding('UTF-8')

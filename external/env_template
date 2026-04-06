@@ -1,10 +1,11 @@
 ENCRYPTION_KEY_HEX=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef   # 64 hex chars = 32 bytes (generate with: openssl rand -hex 32)
-RESULT_FORMAT=json                  # or "csv"
-QUERY_DIR=/queries
-EXTERNAL_URL=http://external:4567   # Internal only
-TRIPLESTORE_URL=http://triplestore:3030/sparql
-POLL_INTERVAL=10                    # seconds
-QUEUE_DIR=/data/queue
-RESULTS_DIR=/data/results
-# Optional stub token (same value in both if you want to enable later)
-# AUTH_TOKEN=super-secret-hub-token
+RESULT_FORMAT=csv                  # or "json"
+QUERY_DIR=/queries   # DO NOT CHANGE THIS unless you really know what you're doing
+QUEUE_DIR=/data/queue  # DO NOT CHANGE THIS unless you really know what you're doing
+RESULTS_DIR=/data/results  # DO NOT CHANGE THIS unless you really know what you're doing
+AUTH_TOKEN=YesItsMe
+# CHANGE 192.168.1.100 to the actual IP of the internal server in this next section
+# others are docker internal IPs or localhost.  These can be removed in production if you want to be more restrictive, but they are needed for testing and development.
+ALLOWED_INTERNAL_IPS=172.31.0.1,127.0.0.1,::1,192.168.1.100   # ← CHANGE 192.168.1.100 to the actual IP of the internal server
+# the path to the JSON representing the currently available Internal queries 
+METADATA_DIR=/metadata  # Don't change this unless you know what you're doing

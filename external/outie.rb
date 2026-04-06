@@ -1,3 +1,6 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
 require 'sinatra'
 require 'json'
 require 'securerandom'
@@ -11,8 +14,10 @@ configure do
   set :protection, except: :host_authorization
 end
 
-# Use absolute paths from environment or sensible defaults
+# Directory where pending and processing jobs are stored
 QUEUE_DIR = ENV.fetch('QUEUE_DIR', '/data/queue')
+
+# Directory where encrypted query results are stored
 RESULTS_DIR = ENV.fetch('RESULTS_DIR', '/data/results')
 
 # Debug - print ALL important variables
@@ -24,10 +29,13 @@ warn "AUTH_TOKEN = #{ENV['AUTH_TOKEN'] ? '*** (present)' : 'NOT SET'}"
 warn "RESULT_FORMAT = #{ENV['RESULT_FORMAT'].inspect}"
 warn '========================='
 
+# AES-256-GCM encryption key derived from hex environment variable
 ENCRYPTION_KEY = [ENV.fetch('ENCRYPTION_KEY_HEX')].pack('H*')
+
+# Content-Type for query results (json or csv)
 CONTENT_TYPE = ENV['RESULT_FORMAT'] == 'csv' ? 'text/csv' : 'application/sparql-results+json'
 
-# Create directories using absolute paths
+# Create required directories on startup
 begin
   FileUtils.mkdir_p([QUEUE_DIR, RESULTS_DIR])
   warn "✓ Successfully created directories: #{QUEUE_DIR} and #{RESULTS_DIR}"
@@ -38,6 +46,11 @@ rescue Errno::EACCES => e
 end
 
 # ============== AES-256-GCM helpers ==============
+
+# Encrypts data using AES-256-GCM.
+#
+# @param data [String] Plaintext data to encrypt
+# @return [String] Encrypted binary data (nonce + tag + ciphertext)
 def encrypt(data)
   cipher = OpenSSL::Cipher.new('aes-256-gcm')
   cipher.encrypt
@@ -48,6 +61,11 @@ def encrypt(data)
   nonce + tag + ciphertext
 end
 
+# Decrypts data previously encrypted with {#encrypt}.
+#
+# @param encrypted [String] Binary encrypted data (nonce + tag + ciphertext)
+# @return [String] Decrypted plaintext
+# @raise [OpenSSL::Cipher::CipherError] if decryption fails (wrong key, tampered data, etc.)
 def decrypt(encrypted)
   cipher = OpenSSL::Cipher.new('aes-256-gcm')
   cipher.decrypt
@@ -61,21 +79,22 @@ def decrypt(encrypted)
 end
 
 # ============== Security: Internal IP filtering for sensitive endpoints ==============
+
+# Security filter applied to every request.
+#
+# - Internal endpoints (`/severance/queue/pull`, `/severance/jobs/*`, `/severance/available_queries`)
+#   are only accessible from whitelisted IPs (default: localhost).
+# - All other (user-facing) endpoints require a valid `Bearer` token if `AUTH_TOKEN` is set.
 before do
   # === Internal calls from Innie (no auth required) ===
   internal_paths = ['/severance/queue/pull', '/severance/jobs/', '/severance/available_queries']
-
   if internal_paths.any? { |p| request.path_info.start_with?(p) }
     allowed_ips = (ENV['ALLOWED_INTERNAL_IPS'] || '127.0.0.1,::1,localhost').split(',').map(&:strip)
-
     client_ip = request.ip
-
     # Allow if client IP is in the list or it's localhost
     is_allowed = allowed_ips.include?(client_ip) ||
                  (allowed_ips.include?('localhost') && ['127.0.0.1', '::1'].include?(client_ip))
-
     halt 403, "Access denied from #{client_ip} - internal IP required" unless is_allowed
-
     # Internal call → bypass Bearer token check
     return
   end
@@ -84,7 +103,6 @@ before do
   if ENV['AUTH_TOKEN']
     auth_header = request.env['HTTP_AUTHORIZATION']
     expected = "Bearer #{ENV['AUTH_TOKEN']}"
-
     unless auth_header && auth_header.casecmp?(expected)
       warn "Auth failed. Received: #{auth_header.inspect} | Expected: #{expected}"
       halt 401, 'Unauthorized'
@@ -92,7 +110,13 @@ before do
   end
 end
 
-def submit_job
+# Submits a new query job for asynchronous execution.
+#
+# Accepts either JSON body or form parameters.
+#
+# @return [201] with `Location` header pointing to the job status
+# @return [400] if `query_id` is missing or empty
+post '/severance/queries' do
   # Safely parse input whether it's JSON or form data
   data = if request.content_type&.include?('application/json')
            JSON.parse(request.body.read)
@@ -103,7 +127,6 @@ def submit_job
 
   # Ensure we have a hash and extract query_id safely
   query_id = data.is_a?(Hash) ? data['query_id'] : nil
-
   halt 400, { error: 'query_id is required' }.to_json if query_id.nil? || query_id.to_s.strip.empty?
 
   uuid = SecureRandom.uuid
@@ -120,20 +143,21 @@ def submit_job
   body ''
 end
 
-# ============== Catalog or retrieve valid queries from innie ==============
-# ============== Receive available queries from Innie (full list) ==============
-# ============== Receive available queries from Innie (full list) ==============
-# ============== Receive list of available queries from Innie ==============
-# ============== Receive list of available queries from Innie ==============
+# ============== Catalog: Receive and serve list of available queries ==============
+
+# Receives the full list of available queries from Innie and saves it to disk.
+#
+# @return [200] on success with count
+# @return [400] if JSON is invalid
+# @return [500] on other errors
 post '/severance/available_queries' do
   queries = JSON.parse(request.body.read)
-
   metadata_dir = ENV.fetch('METADATA_DIR', '/metadata')
   active_queries_path = "#{metadata_dir}/active_queries.json"
 
   File.write(active_queries_path, JSON.pretty_generate(queries))
-
   warn "✓ Received and saved #{queries.size} available queries to #{active_queries_path}"
+
   status 200
   content_type 'application/json'
   body({ success: true, count: queries.size }.to_json)
@@ -149,6 +173,7 @@ rescue StandardError => e
   body({ error: 'Internal server error' }.to_json)
 end
 
+# Returns the current list of available queries (previously pushed by Innie).
 get '/severance/available_queries' do
   metadata_dir = ENV.fetch('METADATA_DIR', '/metadata')
   active_queries_path = "#{metadata_dir}/active_queries.json"
@@ -164,8 +189,15 @@ get '/severance/available_queries' do
 end
 
 # ============== Status / Result retrieval ==============
+
+# Returns the status or result of a job.
+#
+# @param uuid [String] Job UUID
+# @return [202] if still processing
+# @return [200] with result (and deletes files) if completed
+# @return [404] if job not found
 get '/severance/jobs/:uuid' do |uuid|
-  pending    = "#{QUEUE_DIR}/#{uuid}.pending.json"
+  pending = "#{QUEUE_DIR}/#{uuid}.pending.json"
   processing = "#{QUEUE_DIR}/#{uuid}.processing.json"
   result_file = "#{RESULTS_DIR}/#{uuid}.enc"
 
@@ -196,11 +228,15 @@ get '/severance/jobs/:uuid' do |uuid|
   end
 end
 
-# ============== Internal: Push result from "innie" ==============
+# ============== Internal: Push result from "Innie" ==============
+
+# Receives the execution result from Innie and stores it encrypted.
+#
+# @param uuid [String] Job UUID
 post '/severance/jobs/:uuid/result' do |uuid|
   body_content = request.body.read.force_encoding('UTF-8')
   result_file = "#{RESULTS_DIR}/#{uuid}.enc"
-  processing  = "#{QUEUE_DIR}/#{uuid}.processing.json"
+  processing = "#{QUEUE_DIR}/#{uuid}.processing.json"
 
   encrypted_data = encrypt(body_content)
   File.binwrite(result_file, encrypted_data)
@@ -211,6 +247,10 @@ post '/severance/jobs/:uuid/result' do |uuid|
 end
 
 # ============== Internal: Poll for next job ==============
+
+# Internal endpoint used by Innie to pull the next pending job.
+#
+# Returns 204 No Content if queue is empty.
 get '/severance/queue/pull' do
   pending_files = Dir["#{QUEUE_DIR}/*.pending.json"].sort
   if pending_files.empty?
@@ -233,7 +273,7 @@ get '/severance/queue/pull' do
   end
 end
 
-# Optional helper routes
+# Optional helper route - health check / info
 get '/severance' do
   'Outie service ready. Use /severance/queries to submit jobs.'
 end

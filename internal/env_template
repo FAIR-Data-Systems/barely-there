@@ -1,10 +1,8 @@
 ENCRYPTION_KEY_HEX=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef   # 64 hex chars = 32 bytes (generate with: openssl rand -hex 32)
-RESULT_FORMAT=json                  # or "csv"
-QUERY_DIR=/queries
-EXTERNAL_URL=http://external:4567   # Internal only
-TRIPLESTORE_URL=http://triplestore:3030/sparql
+RESULT_FORMAT=csv  # must be the same as the External component!
+QUERY_DIR=/queries  # DO NOT CHANGE THIS unless you really know what you're doing
+EXTERNAL_URL=http://localhost:3000   # The URL to the External API. 
+TRIPLESTORE_URL=http://localhost:7200/repositories/MyREPO  # make sure you create the readonly user
+TRIPLESTORE_USER = markw
+TRIPLESTORE_PASS = markw
 POLL_INTERVAL=10                    # seconds
-QUEUE_DIR=/data/queue
-RESULTS_DIR=/data/results
-# Optional stub token (same value in both if you want to enable later)
-# AUTH_TOKEN=super-secret-hub-token

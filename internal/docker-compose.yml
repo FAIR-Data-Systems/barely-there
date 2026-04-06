@@ -1,6 +1,6 @@
 services:
   internal:
     network_mode: host
-    image: innie
+    image: markw/severance-internal:0.0.1
     env_file: .env
 
