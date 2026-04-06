@@ -54,8 +54,13 @@ The `ENCRYPTION_KEY_HEX` must be shared with the external componenet, since all 
 #### alive?
 `curl -v -H "Authorization: Bearer YesItsMe" http://localhost:3000/severance`
 
+if you see an error, there is a problem!  Check what kind of error, and make sure that the auth key is what you expect as set in the `.env` file
+
+
 #### Any known queries?
 `curl -X GET http://localhost:3000/severance/available_queries   -H "Authorization: Bearer YesItsMe"   -H "Accept: application/json"`
+
+returns JSON annotation of known queries (documentation pending!)
 
 #### Submit a query request
 
@@ -67,10 +72,11 @@ curl -v -X POST http://localhost:3000/severance/queries   -H "Content-Type: appl
     }
   }'
 ```
-response:   201 Created
+
+*response:*
+
 ```
-...
-...
+HTTP/1.1 201 Created
 Location:  http://localhost:3000/severance/jobs/ABC123
 ...
 ...
@@ -80,12 +86,11 @@ Location:  http://localhost:3000/severance/jobs/ABC123
 
 `curl -X GET http://localhost:3000/severance/jobs/ABC123   -H "Authorization: Bearer YesItsMe"   -H "Accept: application/json"`
 
-response:
+*response:*
 
-response:   201 Created
 ```
 ...
-...
+HTTP/1.1 201 Created...
 Location:  http://localhost:3000/severance/jobs/ABC123
 retry-after: 10
 ...
@@ -102,14 +107,14 @@ Your query just submitted will be picked-up and answered (assuming that Internal
 
 `curl -X GET http://localhost:3000/severance/jobs/ABC123   -H "Authorization: Bearer YesItsMe"   -H "Accept: application/json"`
 
-response:
+*response:*
 
-response:   200 OK
 ```
+HTTP/1.1 200 OK
 Content-type:  text/csv
 ...
 ...
 count
 123
-
 ```
+## More tips coming soon!
