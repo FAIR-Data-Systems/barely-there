@@ -1,8 +1,10 @@
 [
   {
     "query_id": "count",
+    "title": "Count matching patients",
+    "summary": "Returns the number of patients in the registry with the corresponding disease code",
     "tags": [
-
+      "Patient Count"
     ],
     "variables": [
       "orphacode"
@@ -11,12 +13,18 @@
       "orphacode": "iri"
     },
     "bindings": {
-    }
+      "orphacode": "http://www.orpha.net/ORDO/Orphanet_730"
+    },
+    "endpoint_in_url": false
   },
   {
     "query_id": "patient_filter",
+    "title": "Get Persons with Filters",
+    "summary": "Retrieves persons with optional filters",
+    "description": "Returns persons matching name pattern, age range, country, and active status. Supports pagination.",
     "tags": [
-
+      "persons",
+      "filter"
     ],
     "variables": [
       "name",
@@ -35,6 +43,12 @@
       "active": "boolean"
     },
     "bindings": {
-    }
+      "name": "John",
+      "minAge": 18,
+      "active": true
+    },
+    "pagination": 50,
+    "method": "GET",
+    "endpoint": "https://example.org/sparql"
   }
 ]

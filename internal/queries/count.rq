@@ -4,7 +4,7 @@
 #+ tags:
 #+   - Patient Count
 #+ defaults:
-#+   - orphacode: http://www.orpha.net/ORDO/Orphanet_98896
+#+   - orphacode: http://www.orpha.net/ORDO/Orphanet_730
 #+ endpoint_in_url: False
 
 PREFIX obo: <http://purl.obolibrary.org/obo/>

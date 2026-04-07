@@ -63,7 +63,7 @@ The `ENCRYPTION_KEY_HEX` must be shared with the external componenet, since all 
 curl -v -X POST http://localhost:3000/severance/queries   -H "Content-Type: application/json"   -H "Authorization: Bearer YesItsMe"   -d '{
     "query_id": "count",
     "bindings": {
-      "orphanet_code": "http://www.orpha.net/ORDO/Orphanet_730"
+      "orphacode": "http://www.orpha.net/ORDO/Orphanet_730"
     }
   }'
 ```
@@ -113,3 +113,75 @@ count
 123
 
 ```
+
+
+# API
+
+## /severance/available_queries
+
+Retrieves a JSON list of named queries that are available from the Internal component
+
+**request**
+
+`curl -X GET http://localhost:3000/severance/available_queries   -H "Authorization: Bearer YesItsMe"   -H "Accept: application/json"`
+
+
+**response**
+```
+[
+    "query_id": "count",
+    "title": "Count matching patients",
+    "summary": "Returns the number of patients in the registry with the corresponding disease code",
+    "tags": [
+      "Patient Count"
+    ],
+    "variables": [
+      "orphacode"
+    ],
+    "variable_types": {
+      "orphacode": "iri"
+    },
+    "examples": {
+      "orphacode": "http://www.orpha.net/ORDO/Orphanet_730"
+    },
+    "endpoint_in_url": false
+  }
+]
+```
+
+This response shows the key components that you need to construct a query request:
+1)  The query identifier
+2)  The query variables
+3)  What type of data is allowed for each variable
+4)  An example (there's no guarantee that the example will result in a match - it is informative only!)
+
+From this, a valid query binding would be(using the exemplar value):
+
+```
+{
+    "query_id": "count",
+    "bindings": {
+      "orphacode": "http://www.orpha.net/ORDO/Orphanet_730"
+    }
+}
+```
+note that URLs are submitted as strings, without any "<...>"
+
+
+## /severance/queries
+
+POST a valid query binding to this endpoint to add it to the query queue.
+
+Example:
+```
+curl -v -X POST http://localhost:3000/severance/queries   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YesItsMe"   -d '{ \
+    "query_id": "count", \
+    "bindings": { \
+      "orphacode": "http://www.orpha.net/ORDO/Orphanet_730" \
+    } \
+  }'
+
+```
+
+the Location header of the response tells you the addess you should poll to get your answer.  The frequency with which the query queue is accessed is entirely up to the service provider - minutes, days, or longer.  

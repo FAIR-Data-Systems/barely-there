@@ -68,7 +68,7 @@ module QueryAnnotationParser
         end
       end
 
-      # NEW: proper multi-line decorator parser
+      # multi-line decorator parser
       parse_all_decorators(decorator_lines, metadata)
       metadata['query'] = query_lines.join("\n").strip
 
@@ -80,6 +80,7 @@ module QueryAnnotationParser
       # Fallback query_id
       metadata['query_id'] = File.basename(file_path, '.*') if metadata['query_id'].nil? || metadata['query_id'].empty?
 
+      warn "metadata for #{metadata['query_id']}: #{metadata.inspect}  "
       metadata
     end
 
@@ -97,12 +98,16 @@ module QueryAnnotationParser
       current_list = nil
 
       decorator_lines.each do |line|
-        clean = line.sub(/^#+\s*/, '').strip
+        clean = line.sub(/^#\+\s*/, '').strip
         next if clean.empty?
+
+        # warn "Parsing decorator line: #{clean}  "
 
         # Section header like "tags:", "defaults:", "enumerate:"
         if clean.end_with?(':')
           key = clean.chomp(':').strip
+          # warn "Found section header: #{key}  "
+
           case key
           when 'tags'
             metadata['tags'] = []
@@ -115,7 +120,7 @@ module QueryAnnotationParser
           current_list = nil
           next
         end
-
+        # warn "Current key: #{current_key.inspect}, current list: #{current_list.inspect}  "
         # List item "- value" or "- key: value"
         if clean.start_with?('- ')
           item = clean.sub(/^- \s*/, '').strip
@@ -126,6 +131,7 @@ module QueryAnnotationParser
             if item.include?(':')
               k, v = item.split(':', 2).map(&:strip)
               metadata['defaults'][k] = parse_value(v)
+              # warn "→ Parsed default: #{k} → #{metadata['defaults'][k].inspect}  "
             end
           when 'enumerate'
             if item.include?(':') && item.end_with?(':')

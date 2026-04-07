@@ -45,8 +45,11 @@ def substitute_grlc_bindings(query, bindings, variable_types = {})
   bindings.each do |k, v|
     next if v.nil?
 
+    warn "Processing binding: #{k} => #{v.inspect}"
+    warn "Variable types for #{k}: #{variable_types[k.to_s]}"
     # Determine if this variable is declared as iri
     is_iri = variable_types[k.to_s]&.downcase == 'iri'
+    warn "Variable '#{k}' is declared as IRI: #{is_iri}"
     escaped_value = if is_iri
                       # Auto-wrap IRIs in < >
                       if v.to_s.strip.start_with?('<') && v.to_s.strip.end_with?('>')
@@ -57,6 +60,7 @@ def substitute_grlc_bindings(query, bindings, variable_types = {})
                     else
                       escape_for_sparql(v)
                     end
+    warn "Escaped value for #{k}: #{escaped_value}"
 
     # Match both ?_key_type and ?__key_type
     pattern = /(?:\?__|\?_)#{Regexp.escape(k.to_s)}_[\w:]+/i
@@ -101,7 +105,7 @@ end
 # so the UI can list available queries and later request them by ID.
 begin
   queries = QueryAnnotationParser::Parser.process_folder(QUERY_DIR)
-
+  all_queries = {}
   # Build the final list that Outie expects
   available_queries = queries.map do |metadata|
     # Compute smart bindings from defaults + enumerate
@@ -112,7 +116,7 @@ begin
       bindings[key] = values if values.is_a?(Array) && !values.empty?
     end
 
-    {
+    queryhash = {
       'query_id' => metadata['query_id'],
       'title' => metadata['title'],
       'summary' => metadata['summary'],
@@ -120,12 +124,15 @@ begin
       'tags' => metadata['tags'],
       'variables' => metadata['variables'],
       'variable_types' => metadata['variable_types'],
-      'bindings' => bindings,
+      'examples' => bindings,
       'pagination' => metadata['pagination'],
       'method' => metadata['method'],
       'endpoint' => metadata['endpoint'],
       'endpoint_in_url' => metadata['endpoint_in_url']
     }.compact # remove nil keys
+
+    all_queries[metadata['query_id']] = queryhash # for quick lookup later when processing jobs
+    queryhash
   end
 
   # ONE single POST with the full list of available queries
@@ -183,11 +190,13 @@ loop do
 
   query = File.read(query_path, encoding: 'UTF-8')
   warn "Found query #{query_id} (#{query_path})"
+  warn "all_queries #{all_queries.inspect}"
 
   # === Bind grlc-style placeholders (?_key_type) ===
-  query = substitute_grlc_bindings(query, bindings)
+  query = substitute_grlc_bindings(query, bindings, all_queries[query_id]['variable_types'])
+  warn "Final query after binding:\n#{query}"
 
-  validate_query(query)
+  validate_query(query) # currently a no-op, but can be expanded with real validation logic later
 
   # === Execute against triplestore with authentication ===
   uri = URI(TRIPLESTORE_URL)
