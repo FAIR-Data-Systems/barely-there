@@ -1,4 +1,4 @@
-<img src="../docs/SeverenceSMW.png"/>
+<img src="../../docs/SeverenceSMW.png"/>
 
 # Severance: Queries
 
