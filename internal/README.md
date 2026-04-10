@@ -57,3 +57,6 @@ In the ./queries folder there are some examples of annotated queries that can be
 
 We provide some [guidance for how to author these queries](./queries/README.md) so that they can be interpreted by Severance and used to build a sensible UI on the External side, and also to help them be more universally discoverable based on their Query Type.
 
+**Note:**  The ./queries folder content is read at start-up of the Internal component.  If you modify the queries, you will want to restart this service by docker-compose down/up.
+
+
