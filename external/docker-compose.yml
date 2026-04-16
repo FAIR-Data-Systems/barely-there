@@ -1,14 +1,12 @@
 services:
   external:
-#    build: ./
-    image: markw/severance-external:0.0.1
+    image: markw/severance-external:0.1.0
     ports: ["3000:3000"]
     env_file:
       - .env
     volumes:
       - "./data:/data"
       - "./queries-metadata:/metadata"
-    # ... other settings
     environment:
       - RACK_ENV=production
       - APP_ENV=production     # both for redundancy

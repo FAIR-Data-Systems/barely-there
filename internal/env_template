@@ -5,4 +5,7 @@ EXTERNAL_URL=http://localhost:3000   # The URL to the External API.
 TRIPLESTORE_URL=http://localhost:7200/repositories/MyREPO  # make sure you create the readonly user
 TRIPLESTORE_USER = markw
 TRIPLESTORE_PASS = markw
-POLL_INTERVAL=10                    # seconds
+POLL_INTERVAL=10  # seconds
+# these set the permissions on the ./queries folder so that you can edit it 
+UID=1000   #  at terminal:   id -u
+GID=1000   # at terminal:  id -g

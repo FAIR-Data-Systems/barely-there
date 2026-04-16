@@ -145,13 +145,7 @@ def validate_query(_query)
   true # ← stub – replace with real validation later
 end
 
-# ========================================================================
-# ============================ MAIN LOOP =================================
-# ========================================================================
-
-# On startup: Push all query metadata to the external service (Outie)
-# so the UI can list available queries and later request them by ID.
-begin
+def process_queries
   queries = QueryAnnotationParser::Parser.process_folder(QUERY_DIR)
   all_queries = {}
   # Build the final list that Outie expects
@@ -180,37 +174,47 @@ begin
     }.compact # remove nil keys
 
     all_queries[metadata['query_id']] = queryhash # for quick lookup later when processing jobs
-    queryhash
   end
 
-  # ONE single POST with the full list of available queries
-  push_uri = URI("#{EXTERNAL_URL}/severance/available_queries")
-  warn "Pushing #{available_queries.size} available queries to #{push_uri.inspect}..."
-  push_req = Net::HTTP::Post.new(push_uri)
-  push_req['Content-Type'] = 'application/json; charset=utf-8'
-  push_req.body = JSON.generate(available_queries)
+  begin
+    # ONE single POST with the full list of available queries
+    push_uri = URI("#{EXTERNAL_URL}/severance/available_queries")
+    warn "Pushing #{available_queries.size} available queries to #{push_uri.inspect}..."
+    push_req = Net::HTTP::Post.new(push_uri)
+    push_req['Content-Type'] = 'application/json; charset=utf-8'
+    push_req.body = JSON.generate(available_queries)
 
-  http = Net::HTTP.new(push_uri.hostname, push_uri.port)
-  http.use_ssl = (push_uri.scheme == 'https')
-  res = http.request(push_req)
+    http = Net::HTTP.new(push_uri.hostname, push_uri.port)
+    http.use_ssl = (push_uri.scheme == 'https')
+    res = http.request(push_req)
 
-  if res.is_a?(Net::HTTPSuccess)
-    warn "✓ Registered #{available_queries.size} queries"
-    available_queries.each do |q|
-      warn " • #{q['query_id']} (#{q['title'] || 'no title'})"
+    if res.is_a?(Net::HTTPSuccess)
+      warn "✓ Registered #{available_queries.size} queries"
+      available_queries.each do |q|
+        warn " • #{q['query_id']} (#{q['title'] || 'no title'})"
+      end
+    else
+      warn "⚠ Failed to register queries: #{res.code} #{res.message}"
     end
-  else
-    warn "⚠ Failed to register queries: #{res.code} #{res.message}"
-  end
 
-  warn "Registration completed for #{available_queries.size} queries"
-rescue StandardError => e
-  warn "❌ Failed to push queries on startup: #{e.class} - #{e.message}"
+    warn "Registration completed for #{available_queries.size} queries"
+  rescue StandardError => e
+    warn "❌ Failed to push queries on startup: #{e.class} - #{e.message}"
+  end
+  all_queries
 end
+
+# ========================================================================
+# ============================ MAIN LOOP =================================
+# ========================================================================
 
 # Main polling loop: continuously pull jobs from the external service,
 # execute them against the triplestore, and push results back.
 loop do
+  # On startup: Push all query metadata to the external service (Outie)
+  # so the UI can list available queries and later request them by ID.
+  all_queries = process_queries
+
   poll_uri = URI("#{EXTERNAL_URL}/severance/queue/pull")
   warn "Polling for new jobs at #{poll_uri.inspect}..."
   http = Net::HTTP.new(poll_uri.hostname, poll_uri.port)
@@ -306,7 +310,6 @@ loop do
   push_res = http.request(push_req)
   warn "Job #{uuid} completed (push status: #{push_res.code})"
   puts "[#{Time.now}] Job #{uuid} for query #{query_id} finished"
-
   # Small delay before next poll
   sleep POLL_INTERVAL
 end

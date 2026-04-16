@@ -34,7 +34,7 @@ The `ENCRYPTION_KEY_HEX` must be shared with the external componenet, since all 
 
     services:
         external:
-            image: markw/severance-external:0.0.1
+            image: markw/severance-external:0.1.0
             ports: ["3000:3000"]  # runs on 3000 internally
             env_file:
                 - .env
@@ -117,7 +117,6 @@ Content-type:  text/csv
 count
 123
 ```
-<<<<<<< HEAD
 
 
 # API
@@ -190,6 +189,3 @@ curl -v -X POST http://localhost:3000/severance/queries   -H "Content-Type: appl
 ```
 
 the Location header of the response tells you the addess you should poll to get your answer.  The frequency with which the query queue is accessed is entirely up to the service provider - minutes, days, or longer.  
-=======
-## More tips coming soon!
->>>>>>> 290519946f2a96da3c972f837aba2302de74b3ba

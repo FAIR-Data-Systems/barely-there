@@ -12,7 +12,7 @@
     "variable_types": {
       "orphacode": "iri"
     },
-    "bindings": {
+    "examples": {
       "orphacode": "http://www.orpha.net/ORDO/Orphanet_730"
     },
     "endpoint_in_url": false
@@ -42,7 +42,7 @@
       "maxAge": "integer",
       "active": "boolean"
     },
-    "bindings": {
+    "examples": {
       "name": "John",
       "minAge": 18,
       "active": true
